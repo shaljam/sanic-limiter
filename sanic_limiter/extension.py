@@ -146,10 +146,10 @@ class Limiter(object):
 
     def __check_request_limit(self, request):
         endpoint = request.path or ""
-        view_handler = self.app.router.routes_static.get(endpoint, None)
-        if view_handler is None:
+        route = self.app.router.get(request)
+        if route is None:
             return
-        view_func = view_handler.handler
+        view_func = route[0]
         view_bpname = view_func.__dict__.get("__blueprintname__", None)
         name = (
             "{}.{}".format(view_func.__module__, view_func.__name__)
