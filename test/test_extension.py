@@ -13,7 +13,6 @@ from sanic_limiter.extension import C
 
 
 class SanicLimiterTest(unittest.TestCase):
-
     def setUp(self):
         return
 
@@ -21,7 +20,7 @@ class SanicLimiterTest(unittest.TestCase):
         app = Sanic(__name__)
         for k, v in config.items():
             app.config.setdefault(k, v)
-        limiter_args.setdefault('key_func', get_remote_address)
+        limiter_args.setdefault("key_func", get_remote_address)
         limiter = Limiter(app, **limiter_args)
         mock_handler = mock.Mock()
         mock_handler.level = logging.INFO
@@ -32,7 +31,7 @@ class SanicLimiterTest(unittest.TestCase):
         app = Sanic(__name__)
         for k, v in config.items():
             app.config.setdefault(k, v)
-        limiter_args.setdefault('key_func', get_remote_address)
+        limiter_args.setdefault("key_func", get_remote_address)
         limiter = Limiter(**limiter_args)
         limiter.init_app(app)
         mock_handler = mock.Mock()
@@ -41,17 +40,25 @@ class SanicLimiterTest(unittest.TestCase):
         return app, limiter
 
     def test_config_limiter(self):
-        app_config = {C.ENABLED: False, C.SWALLOW_ERRORS: True, C.STORAGE_URL: 'redis://localhost:6379/0',
-                      C.STRATEGY: 'fixed-window-elastic-expiry'}
-        app, limiter = self.build_app(config=app_config, key_func=get_remote_address, strategy='moving-window',
-                                      storage_uri='memory://')
+        app_config = {
+            C.ENABLED: False,
+            C.SWALLOW_ERRORS: True,
+            C.STORAGE_URL: "redis://localhost:6379/0",
+            C.STRATEGY: "fixed-window-elastic-expiry",
+        }
+        app, limiter = self.build_app(
+            config=app_config,
+            key_func=get_remote_address,
+            strategy="moving-window",
+            storage_uri="memory://",
+        )
         self.assertEqual(isinstance(limiter.limiter, MovingWindowRateLimiter), True)
         self.assertEqual(isinstance(limiter._storage, MemoryStorage), True)
         self.assertEqual(limiter.enabled, False)
         self.assertEqual(limiter._swallow_errors, True)
 
     def test_limiter_response(self):
-        app, limiter = self.build_app(config={}, global_limits=['1/day'])
+        app, limiter = self.build_app(config={}, global_limits=["1/day"])
 
         @app.route("/t1")
         async def t1(request):
@@ -59,11 +66,13 @@ class SanicLimiterTest(unittest.TestCase):
 
         app.test_client.get("/t1")
         request, response = app.test_client.get("/t1")
-        self.assertTrue(response.status == 429 and '1 per 1 day' in response.body.decode())
+        self.assertTrue(
+            response.status == 429 and "1 per 1 day" in response.body.decode()
+        )
 
     def test_limiter_response_init(self):
         # basic test the follow the init route
-        app, limiter = self.build_app_init(config={}, global_limits=['1/day'])
+        app, limiter = self.build_app_init(config={}, global_limits=["1/day"])
 
         @app.route("/t1")
         async def t1(request):
@@ -71,12 +80,12 @@ class SanicLimiterTest(unittest.TestCase):
 
         re, res = app.test_client.get("/t1")
         request, response = app.test_client.get("/t1")
-        self.assertTrue(response.status == 429 and '1 per 1 day' in response.body.decode())
+        self.assertTrue(
+            response.status == 429 and "1 per 1 day" in response.body.decode()
+        )
 
     def test_combined_rate_limits(self):
-        app, limiter = self.build_app({
-            C.GLOBAL_LIMITS: "1 per hour; 10 per day"
-        })
+        app, limiter = self.build_app({C.GLOBAL_LIMITS: "1 per hour; 10 per day"})
 
         @app.route("/t1")
         @limiter.limit("100 per hour;10/minute")
@@ -97,14 +106,18 @@ class SanicLimiterTest(unittest.TestCase):
         app, limiter = self.build_app()
 
         def limit_condition1():
-            return '1'
+            return "1"
 
         def limit_condition2(request):
-            return request.headers.get('X_FORWARDED_FOR', '127.0.0.1')
+            return request.headers.get("X_FORWARDED_FOR", "127.0.0.1")
 
         @app.route("/t1")
-        @limiter.limit("100 per minute", key_func=limit_condition1)  # limit for all users
-        @limiter.limit("50/minute", key_func=limit_condition2)  # per ip as per default key_func
+        @limiter.limit(
+            "100 per minute", key_func=limit_condition1
+        )  # limit for all users
+        @limiter.limit(
+            "50/minute", key_func=limit_condition2
+        )  # per ip as per default key_func
         async def t1(request):
             return text(t1)
 
@@ -112,7 +125,9 @@ class SanicLimiterTest(unittest.TestCase):
         for i in range(0, 100):
             self.assertEqual(200 if i < 50 else 429, cli.get("/t1")[1].status)
         for i in range(50):
-            self.assertEqual(200, cli.get("/t1", headers={'X_FORWARDED_FOR': '127.0.0.2'})[1].status)
+            self.assertEqual(
+                200, cli.get("/t1", headers={"X_FORWARDED_FOR": "127.0.0.2"})[1].status
+            )
         self.assertEqual(429, cli.get("/t1")[1].status)
         self.assertEqual(429, cli.get("/t1")[1].status)
 
@@ -163,9 +178,9 @@ class SanicLimiterTest(unittest.TestCase):
         self.assertEqual(429, cli.get("/t1/two")[1].status)
 
     def test_bp_limit(self):
-        app, limiter = self.build_app(config={}, global_limits=['1/day'])
-        bp = Blueprint('/bp')
-        limiter.limit('2 per hour')(bp)
+        app, limiter = self.build_app(config={}, global_limits=["1/day"])
+        bp = Blueprint("/bp")
+        limiter.limit("2 per hour")(bp)
 
         @bp.route("/bp1")
         async def bp_t1(request):
@@ -179,12 +194,12 @@ class SanicLimiterTest(unittest.TestCase):
         self.assertEqual(429, cli.get("/bp1")[1].status)
 
     def test_bp_combined_limit(self):
-        app, limiter = self.build_app(config={}, global_limits=['1/day'])
-        bp = Blueprint('/bp')
-        limiter.limit('1 per hour')(bp)
+        app, limiter = self.build_app(config={}, global_limits=["1/day"])
+        bp = Blueprint("/bp")
+        limiter.limit("1 per hour")(bp)
 
         @bp.route("/bp1")
-        @limiter.limit('2 per hour')
+        @limiter.limit("2 per hour")
         async def bp_t1(request):
             return text("bp_t1")
 

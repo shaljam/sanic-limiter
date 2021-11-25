@@ -31,8 +31,9 @@ class ExtLimit(object):
     simple wrapper to encapsulate limits and their context
     """
 
-    def __init__(self, limit, key_func, scope, per_method, methods, error_message,
-                 exempt_when):
+    def __init__(
+        self, limit, key_func, scope, per_method, methods, error_message, exempt_when
+    ):
         self._limit = limit
         self.key_func = key_func
         self._scope = scope
@@ -68,14 +69,16 @@ class Limiter(object):
      An exception will still be logged. default ``False``
     """
 
-    def __init__(self, app=None
-                 , key_func=None
-                 , global_limits=[]
-                 , strategy=None
-                 , storage_uri=None
-                 , storage_options={}
-                 , swallow_errors=False
-                 ):
+    def __init__(
+        self,
+        app=None,
+        key_func=None,
+        global_limits=[],
+        strategy=None,
+        storage_uri=None,
+        storage_options={},
+        swallow_errors=False,
+    ):
         self.logger = logging.getLogger("sanic-limiter")
 
         self.enabled = True
@@ -90,10 +93,9 @@ class Limiter(object):
         for limit in global_limits:
             self._global_limits.extend(
                 [
-                    ExtLimit(
-                        limit, self._key_func, None, False, None, None, None
-                    ) for limit in parse_many(limit)
-                    ]
+                    ExtLimit(limit, self._key_func, None, False, None, None, None)
+                    for limit in parse_many(limit)
+                ]
             )
         self._route_limits = {}
         self._dynamic_route_limits = {}
@@ -120,18 +122,12 @@ class Limiter(object):
         self._swallow_errors = app.config.setdefault(
             C.SWALLOW_ERRORS, self._swallow_errors
         )
-        self._storage_options.update(
-            app.config.get(C.STORAGE_OPTIONS, {})
-        )
+        self._storage_options.update(app.config.get(C.STORAGE_OPTIONS, {}))
         self._storage = storage_from_string(
-            self._storage_uri
-            or app.config.setdefault(C.STORAGE_URL, 'memory://'),
+            self._storage_uri or app.config.setdefault(C.STORAGE_URL, "memory://"),
             **self._storage_options
         )
-        strategy = (
-            self._strategy
-            or app.config.setdefault(C.STRATEGY, 'fixed-window')
-        )
+        strategy = self._strategy or app.config.setdefault(C.STRATEGY, "fixed-window")
         if strategy not in STRATEGIES:
             raise ConfigurationError("Invalid rate limiting strategy %s" % strategy)
         self._limiter = STRATEGIES[strategy](self._storage)
@@ -139,10 +135,9 @@ class Limiter(object):
         conf_limits = app.config.get(C.GLOBAL_LIMITS, None)
         if not self._global_limits and conf_limits:
             self._global_limits = [
-                ExtLimit(
-                    limit, self._key_func, None, False, None, None, None
-                ) for limit in parse_many(conf_limits)
-                ]
+                ExtLimit(limit, self._key_func, None, False, None, None, None)
+                for limit in parse_many(conf_limits)
+            ]
         app.request_middleware.append(self.__check_request_limit)
 
     @property
@@ -155,13 +150,18 @@ class Limiter(object):
         if view_handler is None:
             return
         view_func = view_handler.handler
-        view_bpname = view_func.__dict__.get('__blueprintname__', None)
-        name = ("{}.{}".format(view_func.__module__, view_func.__name__) if view_func else "")
-        if (not endpoint
+        view_bpname = view_func.__dict__.get("__blueprintname__", None)
+        name = (
+            "{}.{}".format(view_func.__module__, view_func.__name__)
+            if view_func
+            else ""
+        )
+        if (
+            not endpoint
             or not self.enabled
             or name in self._exempt_routes
             or any(fn() for fn in self._request_filters)
-            ):
+        ):
             return
         limits = self._route_limits.get(name, [])
         dynamic_limits = []
@@ -170,14 +170,19 @@ class Limiter(object):
                 try:
                     dynamic_limits.extend(
                         ExtLimit(
-                            limit, lim.key_func, lim.scope, lim.per_method,
-                            lim.methods, lim.error_message, lim.exempt_when
-                        ) for limit in parse_many(lim.limit)
+                            limit,
+                            lim.key_func,
+                            lim.scope,
+                            lim.per_method,
+                            lim.methods,
+                            lim.error_message,
+                            lim.exempt_when,
+                        )
+                        for limit in parse_many(lim.limit)
                     )
                 except ValueError as e:
                     self.logger.error(
-                        "failed to load ratelimit for view function %s (%s)"
-                        , name, e
+                        "failed to load ratelimit for view function %s (%s)", name, e
                     )
         if view_bpname:
             if view_bpname in self._blueprint_dynamic_limits and not dynamic_limits:
@@ -185,24 +190,34 @@ class Limiter(object):
                     try:
                         dynamic_limits.extend(
                             ExtLimit(
-                                limit, lim.key_func, lim.scope, lim.per_method,
-                                lim.methods, lim.error_message, lim.exempt_when
-                            ) for limit in parse_many(lim.limit)
+                                limit,
+                                lim.key_func,
+                                lim.scope,
+                                lim.per_method,
+                                lim.methods,
+                                lim.error_message,
+                                lim.exempt_when,
+                            )
+                            for limit in parse_many(lim.limit)
                         )
                     except ValueError as e:
                         self.logger.error(
-                            "failed to load ratelimit for view blueprint %s (%s)"
-                            , view_bpname, e
+                            "failed to load ratelimit for view blueprint %s (%s)",
+                            view_bpname,
+                            e,
                         )
             if view_bpname in self._blueprint_limits and not limits:
                 limits.extend(self._blueprint_limits[view_bpname])
         failed_limit = None
         try:
-            for lim in (limits + dynamic_limits or self._global_limits):
+            for lim in limits + dynamic_limits or self._global_limits:
                 limit_scope = lim.scope or endpoint
                 if lim.is_exempt:
                     return
-                if lim.methods is not None and request.method.lower() not in lim.methods:
+                if (
+                    lim.methods is not None
+                    and request.method.lower() not in lim.methods
+                ):
                     return
                 if lim.per_method:
                     limit_scope += ":%s" % request.method
@@ -220,15 +235,20 @@ class Limiter(object):
                 if not self.limiter.hit(lim.limit, key, limit_scope):
                     self.logger.warning(
                         "ratelimit %s (%s) exceeded at endpoint: %s",
-                        lim.limit, key, limit_scope)
+                        lim.limit,
+                        key,
+                        limit_scope,
+                    )
                     failed_limit = lim
                     break
 
             if failed_limit:
                 if failed_limit.error_message:
-                    exc_description = failed_limit.error_message if not callable(
+                    exc_description = (
                         failed_limit.error_message
-                    ) else failed_limit.error_message()
+                        if not callable(failed_limit.error_message)
+                        else failed_limit.error_message()
+                    )
                 else:
                     exc_description = six.text_type(failed_limit.limit)
                 raise RateLimitExceeded(exc_description)
@@ -236,61 +256,87 @@ class Limiter(object):
             if isinstance(e, RateLimitExceeded):
                 six.reraise(*sys.exc_info())
             if self._swallow_errors:
-                self.logger.exception(
-                    "Failed to rate limit. Swallowing error"
-                )
+                self.logger.exception("Failed to rate limit. Swallowing error")
             else:
                 six.reraise(*sys.exc_info())
 
-    def __limit_decorator(self, limit_value,
-                          key_func=None, shared=False,
-                          scope=None,
-                          per_method=False,
-                          methods=None,
-                          error_message=None,
-                          exempt_when=None):
+    def __limit_decorator(
+        self,
+        limit_value,
+        key_func=None,
+        shared=False,
+        scope=None,
+        per_method=False,
+        methods=None,
+        error_message=None,
+        exempt_when=None,
+    ):
         _scope = scope if shared else None
 
         def _inner(obj):
             func = key_func or self._key_func
             is_bp = True if isinstance(obj, Blueprint) else False
-            name = "{}.{}".format(obj.__module__, obj.__name__) if not is_bp else obj.name
+            name = (
+                "{}.{}".format(obj.__module__, obj.__name__) if not is_bp else obj.name
+            )
             dynamic_limit, static_limits = None, []
             if callable(limit_value):
-                dynamic_limit = ExtLimit(limit_value, func, _scope, per_method,
-                                         methods, error_message, exempt_when)
+                dynamic_limit = ExtLimit(
+                    limit_value,
+                    func,
+                    _scope,
+                    per_method,
+                    methods,
+                    error_message,
+                    exempt_when,
+                )
             else:
                 try:
-                    static_limits = [ExtLimit(
-                        limit, func, _scope, per_method,
-                        methods, error_message, exempt_when
-                    ) for limit in parse_many(limit_value)]
+                    static_limits = [
+                        ExtLimit(
+                            limit,
+                            func,
+                            _scope,
+                            per_method,
+                            methods,
+                            error_message,
+                            exempt_when,
+                        )
+                        for limit in parse_many(limit_value)
+                    ]
                 except ValueError as e:
-                    self.logger.error("failed to configure {} {} ({})".format("view function", name, e))
+                    self.logger.error(
+                        "failed to configure {} {} ({})".format(
+                            "view function", name, e
+                        )
+                    )
             if is_bp:
                 if dynamic_limit:
                     self._blueprint_dynamic_limits.setdefault(name, []).append(
                         dynamic_limit
                     )
                 else:
-                    self._blueprint_limits.setdefault(name, []).extend(
-                        static_limits
-                    )
+                    self._blueprint_limits.setdefault(name, []).extend(static_limits)
             else:
                 if dynamic_limit:
                     self._dynamic_route_limits.setdefault(name, []).append(
                         dynamic_limit
                     )
                 else:
-                    self._route_limits.setdefault(name, []).extend(
-                        static_limits
-                    )
+                    self._route_limits.setdefault(name, []).extend(static_limits)
                 return obj
 
         return _inner
 
-    def limit(self, limit_value, key_func=None, per_method=False,
-              methods=None, error_message=None, exempt_when=None):
+    def limit(
+        self,
+        limit_value,
+        key_func=None,
+        per_method=False,
+        methods=None,
+        error_message=None,
+        exempt_when=None,
+    ):
         """
         decorator to be used for rate limiting individual routes.
 
@@ -306,12 +352,18 @@ class Limiter(object):
          error message used in the response.
         :return:
         """
-        return self.__limit_decorator(limit_value, key_func, per_method=per_method,
-                                      methods=methods, error_message=error_message,
-                                      exempt_when=exempt_when)
+        return self.__limit_decorator(
+            limit_value,
+            key_func,
+            per_method=per_method,
+            methods=methods,
+            error_message=error_message,
+            exempt_when=exempt_when,
+        )
 
-    def shared_limit(self, limit_value, scope, key_func=None,
-                     error_message=None, exempt_when=None):
+    def shared_limit(
+        self, limit_value, scope, key_func=None, error_message=None, exempt_when=None
+    ):
         """
         decorator to be applied to multiple routes sharing the same rate limit.
 
@@ -325,8 +377,12 @@ class Limiter(object):
          error message used in the response.
         """
         return self.__limit_decorator(
-            limit_value, key_func, True, scope, error_message=error_message,
-            exempt_when=exempt_when
+            limit_value,
+            key_func,
+            True,
+            scope,
+            error_message=error_message,
+            exempt_when=exempt_when,
         )
 
     def exempt(self, obj):

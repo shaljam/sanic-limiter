@@ -10,7 +10,7 @@ def get_remote_address(request):
     """
     # Check if request object has remote_addr attribute set
     # Seems to break on sanic 19.6.3
-    if hasattr(request, 'remote_addr'):
+    if hasattr(request, "remote_addr"):
         return request.remote_addr
     else:
         return request.ip
