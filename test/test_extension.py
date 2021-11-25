@@ -152,8 +152,8 @@ class SanicLimiterTest(unittest.TestCase):
     def test_explicit_method_limits(self):
         app, limiter = self.build_app()
 
-        @limiter.limit("1/second", methods=["GET"])
         @app.route("/t1", methods=["GET", "POST"])
+        @limiter.limit("1/second", methods=["GET"])
         async def t1(request):
             return text("test")
 
@@ -166,8 +166,8 @@ class SanicLimiterTest(unittest.TestCase):
     def test_dynamic_route(self):
         app, limiter = self.build_app()
 
-        @limiter.limit("1/minute")
         @app.route("/t1/<path>")
+        @limiter.limit("1/minute")
         async def t1(request, path):
             return text(path)
 
